@@ -1,4 +1,4 @@
-// const Monero = require('moneronodejs'); // Used when accessing class outside of library
+// const Monero = require('monerojs'); // Used when accessing class outside of library
 const Monero = require('./index.js'); // Used when accessing class from within library
 
 // Autoconnect asynchronously (with a promise)

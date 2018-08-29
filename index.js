@@ -1,8 +1,8 @@
 /**
- * moneronodejs
+ * monerojs
  * 
  * ES6 JavaScript Monero library 
- * https://github.com/sneurlax/moneronodejs
+ * https://github.com/monerojs/monerojs
  * 
  * @author     sneurlax <sneurlax@gmail.com> (https://github.com/sneurlax)
  * @copyright  2018
