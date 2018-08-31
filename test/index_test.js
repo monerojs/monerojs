@@ -442,7 +442,8 @@ describe('daemonRPC constructor', () => {
           it('should get transaction pool info', done => {
             daemonRPC.get_transaction_pool()
             .then(result => {
-              result.should.be.a.Object();
+              if (typeof result == 'string')
+                result = JSON.parse(result);
               result.should.be.a.Object();
               result.status.should.be.a.String();
               result.status.should.be.equal('OK');
@@ -769,6 +770,391 @@ describe('walletRPC constructor', () => {
           });
         });
 
+        let balance = 0;
+
+        describe('getbalance()', () => {
+          it('should retrieve the account balance', done => {
+            walletRPC.getbalance()
+            .then(result => {
+              result.should.be.a.Object();
+              result.balance.should.be.a.Number();
+              result.unlocked_balance.should.be.a.Number();
+              balance = result.unlocked_balance;
+
+              describe('walletRPC transfer methods', () => {
+                if (balance <= 0) {
+                  // TODO request funding from faucet
+                  describe('check wallet balance...', () => {
+                    it(`it should only test transfer methods if ${network}_wallet has balance`, done => {
+                      done();
+                    });
+                  });
+                } else {
+                  let tx_blob = '';
+                  let tx_metadata = '';
+                  let tx_hash = '';
+                  let tx_key = '';
+
+                  describe('transfer()', () => {
+                    it('should generate transaction', done => {
+                      walletRPC.transfer({
+                        address: address,
+                        amount: 0.1,
+                        mixin: 6,
+                        get_tx_key: true,
+                        account_index: 0,
+                        subaddr_indices: 0,
+                        priority: 1,
+                        do_not_relay: true,
+                        get_tx_hex: true,
+                        get_tx_metadata: true,
+                        payment_id: '1020304050607080'
+                      })
+                      .then(result => {
+                        result.should.be.a.Object();
+                        result.amount.should.be.a.Number();
+                        result.amount.should.be.equal(100000000000);
+                        result.fee.should.be.a.Number();
+                        result.tx_hash.should.be.a.String();
+                        tx_hash = result.tx_hash;
+                        result.tx_key.should.be.a.String();
+                        tx_key = result.tx_key;
+                        result.tx_blob.should.be.a.String();
+                        tx_blob = result.tx_blob;
+                        result.tx_metadata.should.be.a.String();
+                        tx_metadata = result.tx_metadata;
+                      })
+                      .then(done, done);
+                    })
+                    .timeout(5000);
+                  });
+
+                  describe('transfer_split()', () => {
+                    it('should generate potentially-split transaction', done => {
+                      walletRPC.transfer_split({
+                        address: address,
+                        amount: 0.1,
+                        mixin: 6,
+                        get_tx_keys: true,
+                        account_index: 0,
+                        subaddr_indices: 0,
+                        priority: 1,
+                        do_not_relay: true,
+                        get_tx_hex: true,
+                        get_tx_metadata: true
+                      })
+                      .then(result => {
+                        result.should.be.a.Object();
+                        result.amount_list.should.be.a.Array();
+                        result.amount_list[0].should.be.a.Number();
+                        // result.amount_list[0].should.be.equal(100000000000);
+                        result.fee_list.should.be.a.Array();
+                        result.fee_list[0].should.be.a.Number();
+                        result.tx_hash_list.should.be.a.Array();
+                        result.tx_hash_list[0].should.be.a.String();
+                        result.tx_key_list.should.be.a.Array();
+                        result.tx_key_list[0].should.be.a.String();
+                        result.tx_blob_list.should.be.a.Array();
+                        result.tx_blob_list[0].should.be.a.String();
+                        result.tx_metadata_list.should.be.a.Array();
+                        result.tx_metadata_list[0].should.be.a.String();
+                      })
+                      .then(done, done);
+                    })
+                    .timeout(3000);
+                  });
+
+                  describe('sweep_dust()', () => {
+                    it('should sweep unspendable dust', done => {
+                      walletRPC.sweep_dust()
+                      .then(result => {
+                        result.should.be.a.Object();
+                        result.multisig_txset.should.be.a.String();
+                      })
+                      .then(done, done);
+                    })
+                    .timeout(3000);
+                  });
+
+                  describe('sweep_unmixable()', () => {
+                    it('should sweep unmixable outputs', done => {
+                      walletRPC.sweep_unmixable()
+                      .then(result => {
+                        result.should.be.a.Object();
+                        result.multisig_txset.should.be.a.String();
+                      })
+                      .then(done, done);
+                    })
+                    .timeout(3000);
+                  });
+
+                  describe('sweep_all()', () => {
+                    it('should generate sweep transaction', done => {
+                      walletRPC.sweep_all({
+                        address: address,
+                        mixin: 6,
+                        get_tx_keys: true,
+                        account_index: 0,
+                        subaddr_indices: 0,
+                        priority: 1,
+                        do_not_relay: true,
+                        get_tx_hex: true,
+                        get_tx_metadata: true
+                      })
+                      .then(result => {
+                        result.should.be.a.Object();
+                        result.amount_list.should.be.a.Array();
+                        result.amount_list[0].should.be.a.Number();
+                        result.fee_list.should.be.a.Array();
+                        result.fee_list[0].should.be.a.Number();
+                        result.tx_hash_list.should.be.a.Array();
+                        result.tx_hash_list[0].should.be.a.String();
+                        result.tx_key_list.should.be.a.Array();
+                        result.tx_key_list[0].should.be.a.String();
+                        result.tx_blob_list.should.be.a.Array();
+                        result.tx_blob_list[0].should.be.a.String();
+                        result.tx_metadata_list.should.be.a.Array();
+                        result.tx_metadata_list[0].should.be.a.String();
+                      })
+                      .then(done, done);
+                    })
+                    .timeout(3000);
+                  });
+
+                  // TODO sweep_single
+
+                  describe('relay_tx()', () => {
+                    it('should relay transaction', done => {
+                      walletRPC.relay_tx(tx_metadata)
+                      .then(result => {
+                        result.should.be.a.Object();
+                        result.fee.should.be.a.Number();
+                        result.tx_blob.should.be.a.String();
+                        result.tx_hash.should.be.a.String();
+                        result.tx_key.should.be.a.String();
+                      })
+                      .then(done, done);
+                    });
+                  });
+
+                  // TODO wait for payment to be mined
+                  describe('get_payments()', () => {
+                    it('should get payments with payment ID 1020304050607080', done => {
+                      walletRPC.get_payments('1020304050607080')
+                      .then(result => {
+                        result.should.be.a.Object();
+                        // TODO finish test
+                        console.log(result);
+                      })
+                      .then(done, done);
+                    });
+                  });
+
+                  // TODO wait for payment to be mined
+                  describe('get_bulk_payments()', () => {
+                    it(`should get payments with payment ID 1020304050607080 from height ${height}`, done => {
+                      walletRPC.get_bulk_payments('1020304050607080', height)
+                      .then(result => {
+                        result.should.be.a.Object();
+                        // TODO finish test
+                        console.log(result);
+                      })
+                      .then(done, done);
+                    });
+                  });
+
+                  describe('incoming_transfers()', () => {
+                    it('should get incoming transfers', done => {
+                      walletRPC.incoming_transfers('all', 0, 0, true)
+                      .then(result => {
+                        result.should.be.a.Object();
+                        result.transfers.should.be.a.Array();
+                        result.transfers[0].should.be.a.Object();
+                        result.transfers[0].amount.should.be.a.Number();
+                        result.transfers[0].key_image.should.be.a.String();
+                      })
+                      .then(done, done);
+                    });
+                  });
+
+                  describe('set_tx_notes()', () => {
+                    it('should set note for transfer', done => {
+                      walletRPC.set_tx_notes([tx_hash], ['monerojs unit test suite transaction note'])
+                      .then(result => {
+                        result.should.be.a.Object();
+                      })
+                      .then(done, done);
+                    });
+                  });
+
+                  describe('get_tx_notes()', () => {
+                    it('should get note for transfer', done => {
+                      walletRPC.get_tx_notes([tx_hash])
+                      .then(result => {
+                        result.should.be.a.Object();
+                        result.notes.should.be.a.Array();
+                        result.notes[0].should.be.a.String();
+                        result.notes[0].should.be.equal('monerojs unit test suite transaction note');
+                      })
+                      .then(done, done);
+                    });
+                  });
+
+                  describe('get_tx_key()', () => {
+                    it('should get transaction key of transfer', done => {
+                      walletRPC.get_tx_key(tx_hash)
+                      .then(result => {
+                        result.should.be.a.Object();
+                        if (result.hasOwnProperty('error')) {
+                          if (result.error.code == -24) {
+                            result.error.code.should.be.equal(-24); // Transaction not relayed
+                          }
+                        } else {
+                          result.tx_key.should.be.a.String();
+                          result.tx_key.should.be.equal(tx_key);
+                        }
+                      })
+                      .then(done, done);
+                    });
+                  });
+
+                  describe('check_tx_key()', () => {
+                    it('should check transaction key of transfer', done => {
+                      walletRPC.check_tx_key(address, tx_hash, tx_key)
+                      .then(result => {
+                        result.should.be.a.Object();
+                        if (result.hasOwnProperty('error')) {
+                          if (result.error.code == -1) {
+                            result.error.code.should.be.equal(-1); // Transaction likely not relayed
+                          }
+                        } else {
+                          result.confirmations.should.be.a.Number();
+                          result.in_pool.should.be.a.Boolean();
+                          result.received.should.be.a.Number();
+                        }
+                      })
+                      .then(done, done);
+                    });
+                  });
+
+                  let tx_proof = '';
+
+                  describe('get_tx_proof()', () => {
+                    it('should check transaction proof of transfer', done => {
+                      walletRPC.get_tx_proof(address, tx_hash)
+                      .then(result => {
+                        result.should.be.a.Object();
+                        result.signature.should.be.a.String();
+                        tx_proof = result.signature;
+                      })
+                      .then(done, done);
+                    });
+                  });
+
+                  describe('check_tx_proof()', () => {
+                    it('should check transaction proof of transfer', done => {
+                      walletRPC.check_tx_proof(address, tx_hash, tx_proof)
+                      .then(result => {
+                        result.should.be.a.Object();
+                        result.confirmations.should.be.a.Number();
+                        result.good.should.be.a.Boolean();
+                        result.good.should.be.equal(true);
+                        result.in_pool.should.be.a.Boolean();
+                        result.received.should.be.a.Number();
+                      })
+                      .then(done, done);
+                    });
+                  });
+
+                  let tx_spend_proof = '';
+
+                  describe('get_spend_proof()', () => {
+                    it('should check spend proof of transfer', done => {
+                      walletRPC.get_spend_proof(tx_hash)
+                      .then(result => {
+                        result.should.be.a.Object();
+                        result.signature.should.be.a.String();
+                        tx_spend_proof = result.signature;
+                      })
+                      .then(done, done);
+                    });
+                  });
+
+                  describe('check_spend_proof()', () => {
+                    it('should check spend proof of transfer', done => {
+                      walletRPC.check_spend_proof(tx_hash, tx_spend_proof)
+                      .then(result => {
+                        result.should.be.a.Object();
+                        result.good.should.be.a.Boolean();
+                        result.good.should.be.equal(true);
+                      })
+                      .then(done, done);
+                    });
+                  });
+
+                  let reserve_proof = '';
+
+                  // TODO figure out why reserve proofs don't include balance
+                  describe('get_reserve_proof()', () => {
+                    it('should check reserve proof of primary account', done => {
+                      walletRPC.get_reserve_proof(0, 1)
+                      .then(result => {
+                        result.should.be.a.Object();
+                        result.signature.should.be.a.String();
+                        reserve_proof = result.signature;
+                      })
+                      .then(done, done);
+                    });
+                  });
+
+                  describe('check_reserve_proof()', () => {
+                    it('should check reserve proof of address', done => {
+                      walletRPC.check_reserve_proof(address, reserve_proof)
+                      .then(result => {
+                        console.log(result);
+                        result.should.be.a.Object();
+                        result.good.should.be.a.Boolean();
+                        result.good.should.be.equal(true);
+                        result.spent.should.be.a.Number();
+                        result.total.should.be.a.Number();
+                      })
+                      .then(done, done);
+                    });
+                  });
+
+                  // TODO find out why no transfers are listed
+                  describe('get_transfers()', () => {
+                    it('should get list of transfers', done => {
+                      walletRPC.get_transfers()
+                      .then(result => {
+                        result.should.be.a.Object();
+                        console.log(result);
+                      })
+                      .then(done, done);
+                    });
+                  });
+
+                  describe('get_transfer_by_txid()', () => {
+                    it('should get transfer information', done => {
+                      walletRPC.get_transfer_by_txid(tx_hash)
+                      .then(result => {
+                        result.should.be.a.Object();
+                        result.transfer.should.be.a.Object();
+                        result.transfer.address.should.be.a.String();
+                        result.transfer.amount.should.be.a.Number();
+                        result.transfer.note.should.be.a.String();
+                        result.transfer.note.should.be.equal('monerojs unit test suite transaction note');
+                      })
+                      .then(done, done);
+                    });
+                  });
+                }
+              });
+            })
+            .then(done, done);
+          });
+        });
+
         let address_index = 0;
 
         describe('create_address()', () => {
@@ -883,152 +1269,6 @@ describe('walletRPC constructor', () => {
           });
         });
 
-        // TODO figure out why this sometimes doesn't run on wallets with unlocked balance
-        if (balance > 0) { // can only test transfer and sweep methods if wallet has balance
-          // TODO request funding from faucet
-          let tx_blob = '';
-          let tx_metadata = '';
-
-          describe('transfer()', () => {
-            it('should generate transaction', done => {
-              walletRPC.transfer({
-                address: address,
-                amount: 0.1,
-                mixin: 6,
-                get_tx_key: true,
-                account_index: 0,
-                subaddr_indices: 0,
-                priority: 1,
-                do_not_relay: true,
-                get_tx_hex: true,
-                get_tx_metadata: true
-              })
-              .then(result => {
-                result.should.be.a.Object();
-                result.amount.should.be.a.Number();
-                result.amount.should.be.equal(100000000000);
-                result.fee.should.be.a.Number();
-                result.tx_hash.should.be.a.String();
-                result.tx_key.should.be.a.String();
-                result.tx_blob.should.be.a.String();
-                tx_blob = result.tx_blob;
-                result.tx_metadata.should.be.a.String();
-                tx_metadata = result.tx_metadata;
-              })
-              .then(done, done);
-            })
-            .timeout(3000);
-          });
-
-          describe('transfer_split()', () => {
-            it('should generate potentially-split transaction', done => {
-              walletRPC.transfer_split({
-                address: address,
-                amount: 0.1,
-                mixin: 6,
-                get_tx_keys: true,
-                account_index: 0,
-                subaddr_indices: 0,
-                priority: 1,
-                do_not_relay: true,
-                get_tx_hex: true,
-                get_tx_metadata: true
-              })
-              .then(result => {
-                result.should.be.a.Object();
-                result.amount_list.should.be.a.Array();
-                result.amount_list[0].should.be.a.Number();
-                // result.amount_list[0].should.be.equal(100000000000);
-                result.fee_list.should.be.a.Array();
-                result.fee_list[0].should.be.a.Number();
-                result.tx_hash_list.should.be.a.Array();
-                result.tx_hash_list[0].should.be.a.String();
-                result.tx_key_list.should.be.a.Array();
-                result.tx_key_list[0].should.be.a.String();
-                result.tx_blob_list.should.be.a.Array();
-                result.tx_blob_list[0].should.be.a.String();
-                result.tx_metadata_list.should.be.a.Array();
-                result.tx_metadata_list[0].should.be.a.String();
-              })
-              .then(done, done);
-            })
-            .timeout(3000);
-          });
-
-          describe('sweep_dust()', () => {
-            it('should sweep unspendable dust', done => {
-              walletRPC.sweep_dust()
-              .then(result => {
-                result.should.be.a.Object();
-                result.multisig_txset.should.be.a.String();
-              })
-              .then(done, done);
-            })
-            .timeout(3000);
-          });
-
-          describe('sweep_unmixable()', () => {
-            it('should sweep unmixable outputs', done => {
-              walletRPC.sweep_unmixable()
-              .then(result => {
-                result.should.be.a.Object();
-                result.multisig_txset.should.be.a.String();
-              })
-              .then(done, done);
-            })
-            .timeout(3000);
-          });
-
-          describe('sweep_all()', () => {
-            it('should generate sweep transaction', done => {
-              walletRPC.sweep_all({
-                address: address,
-                mixin: 6,
-                get_tx_keys: true,
-                account_index: 0,
-                subaddr_indices: 0,
-                priority: 1,
-                do_not_relay: true,
-                get_tx_hex: true,
-                get_tx_metadata: true
-              })
-              .then(result => {
-                result.should.be.a.Object();
-                result.amount_list.should.be.a.Array();
-                result.amount_list[0].should.be.a.Number();
-                result.fee_list.should.be.a.Array();
-                result.fee_list[0].should.be.a.Number();
-                result.tx_hash_list.should.be.a.Array();
-                result.tx_hash_list[0].should.be.a.String();
-                result.tx_key_list.should.be.a.Array();
-                result.tx_key_list[0].should.be.a.String();
-                result.tx_blob_list.should.be.a.Array();
-                result.tx_blob_list[0].should.be.a.String();
-                result.tx_metadata_list.should.be.a.Array();
-                result.tx_metadata_list[0].should.be.a.String();
-              })
-              .then(done, done);
-            })
-            .timeout(3000);
-          });
-
-          // TODO sweep_single
-
-          describe('relay_tx()', () => {
-            it('should relay transaction', done => {
-              walletRPC.relay_tx(tx_metadata)
-              .then(result => {
-                result.should.be.a.Object();
-                result.fee.should.be.a.Number();
-                result.tx_blob.should.be.a.String();
-                result.tx_hash.should.be.a.String();
-                result.tx_key.should.be.a.String();
-              })
-              .then(done, done);
-            });
-          });
-        }
-
         describe('store()', () => {
           it('should save wallet', done => {
             walletRPC.store()
@@ -1038,10 +1278,6 @@ describe('walletRPC constructor', () => {
             .then(done, done);
           });
         });
-
-        // TODO get_payments
-        // TODO get_bulk_payments
-        // TODO incoming_transfers
 
         describe('query_key()', () => {
           it('should get wallet view key', done => {
@@ -1137,9 +1373,6 @@ describe('walletRPC constructor', () => {
           });
         });
 
-        // TODO set_tx_notes
-        // TODO get_tx_notes
-
         describe('set_attribute()', () => {
           it('should set wallet attribute', done => {
             walletRPC.set_attribute('ATTRIBUTE_DESCRIPTION', 'monerojs unit test suite wallet description')
@@ -1161,17 +1394,6 @@ describe('walletRPC constructor', () => {
             .then(done, done);
           });
         });
-
-        // TODO get_tx_key
-        // TODO check_tx_key
-        // TODO get_tx_proof
-        // TODO check_tx_proof
-        // TODO get_spend_proof
-        // TODO check_spend_proof
-        // TODO get_reserve_proof
-        // TODO check_reserve_proof
-        // TODO get_transfers
-        // TODO get_transfer_by_txid
 
         let signature = '';
 
@@ -1370,10 +1592,8 @@ describe('walletRPC constructor', () => {
             .then(result => {
               result.should.be.a.Object();
               if (result.hasOwnProperty('error')) {
-                if (result.hasOwnProperty('error')) {
-                  if (result.error.code == -21) {
-                    result.error.code.should.be.equal(-21);
-                  }
+                if (result.error.code == -21) {
+                  result.error.code.should.be.equal(-21);
                 }
               }
             })
@@ -1412,10 +1632,8 @@ describe('walletRPC constructor', () => {
             .then(result => {
               result.should.be.a.Object();
               if (result.hasOwnProperty('error')) {
-                if (result.hasOwnProperty('error')) {
-                  if (result.error.code == -21) {
-                    result.error.code.should.be.equal(-21);
-                  }
+                if (result.error.code == -21) {
+                  result.error.code.should.be.equal(-21);
                 }
               }
             })
@@ -1492,10 +1710,8 @@ describe('walletRPC constructor', () => {
             .then(result => {
               result.should.be.a.Object();
               if (result.hasOwnProperty('error')) {
-                if (result.hasOwnProperty('error')) {
-                  if (result.error.code == -21) {
-                    result.error.code.should.be.equal(-21);
-                  }
+                if (result.error.code == -21) {
+                  result.error.code.should.be.equal(-21);
                 }
               }
             })
