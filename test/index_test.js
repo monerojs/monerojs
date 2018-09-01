@@ -419,18 +419,24 @@ describe('daemonRPC constructor', () => {
         });
 
         describe('is_key_image_spent()', () => {
+          let key_image = '';
+          if (network == 'mainnet') {
+            key_image = '8d1bd8181bf7d857bdb281e0153d84cd55a3fcaa57c3e570f4a49f935850b5e3';
+          } else if (network == 'testnet') {
+            key_image = '1492ffbd6374cd6ac7d3eede15f48466202f8e686ccdc6f515226d54816c063d';
+          } else if (network == 'stagenet') {
+            key_image = ''; // TODO
+          }
+
           it('should get spend status of key image', done => {
-            daemonRPC.is_key_image_spent(['8d1bd8181bf7d857bdb281e0153d84cd55a3fcaa57c3e570f4a49f935850b5e3'])
+            daemonRPC.is_key_image_spent([key_image])
             .then(result => {
               result.should.be.a.Object();
               result.status.should.be.a.String();
               result.status.should.be.equal('OK');
               result.spent_status.should.be.a.Array();
               result.spent_status[0].should.be.a.Number();
-              // TODO handle testnet and stagenet key images
-              if (network == 'mainnet') {
-                result.spent_status[0].should.be.equal(1);
-              }
+              result.spent_status[0].should.be.equal(1);
             })
             .then(done, done);
           });
@@ -738,21 +744,6 @@ describe('walletRPC constructor', () => {
           });
         });
 
-        let balance = 0;
-
-        describe('getbalance()', () => {
-          it('should retrieve the account balance', done => {
-            walletRPC.getbalance()
-            .then(result => {
-              result.should.be.a.Object();
-              result.balance.should.be.a.Number();
-              result.unlocked_balance.should.be.a.Number();
-              balance = result.unlocked_balance;
-            })
-            .then(done, done);
-          });
-        });
-
         let address = '';
 
         describe('getaddress()', () => {
@@ -768,6 +759,52 @@ describe('walletRPC constructor', () => {
             })
             .then(done, done);
           });
+        });
+
+        let height = 0;
+
+        describe('get_height()', () => {
+          it('should get wallet height', done => {
+            walletRPC.get_height()
+            .then(result => {
+              result.should.be.a.Object();
+              result.height.should.be.a.Number();
+
+              height = result.height;
+            })
+            .then(done, done);
+          });
+        });
+
+        let key_images = [];
+
+        describe('export_key_images()', () => {
+          it('should export signed key images', done => {
+            walletRPC.export_key_images()
+            .then(result => {
+              result.should.be.a.Object();
+              result.signed_key_images.should.be.a.Array();
+              key_images = result.signed_key_images;
+              result.signed_key_images[0].should.be.a.Object();
+              result.signed_key_images[0].key_image.should.be.a.String();
+              result.signed_key_images[0].signature.should.be.a.String();
+            })
+            .then(done, done);
+          });
+        });
+
+        describe('import_key_images()', () => {
+          it('should import signed key images', done => {
+            walletRPC.import_key_images(key_images)
+            .then(result => {
+              result.should.be.a.Object();
+              result.height.should.be.a.Number();
+              result.spent.should.be.a.Number();
+              result.unspent.should.be.a.Number();
+            })
+            .then(done, done);
+          })
+          .timeout(6000);
         });
 
         let balance = 0;
@@ -921,7 +958,40 @@ describe('walletRPC constructor', () => {
                     .timeout(3000);
                   });
 
-                  // TODO sweep_single
+                  describe('sweep_single()', () => {
+                    it('should generate sweep transaction of a single key image', done => {
+                      walletRPC.sweep_single({
+                        key_image: key_images[0].key_image,
+                        address: address,
+                        mixin: 6,
+                        get_tx_keys: true,
+                        account_index: 0,
+                        subaddr_indices: 0,
+                        priority: 1,
+                        do_not_relay: true,
+                        get_tx_hex: true,
+                        get_tx_metadata: true
+                      })
+                      .then(result => {
+                        result.should.be.a.Object();
+                        console.log(result);
+                        result.amount_list.should.be.a.Array();
+                        result.amount_list[0].should.be.a.Number();
+                        result.fee_list.should.be.a.Array();
+                        result.fee_list[0].should.be.a.Number();
+                        result.tx_hash_list.should.be.a.Array();
+                        result.tx_hash_list[0].should.be.a.String();
+                        result.tx_key_list.should.be.a.Array();
+                        result.tx_key_list[0].should.be.a.String();
+                        result.tx_blob_list.should.be.a.Array();
+                        result.tx_blob_list[0].should.be.a.String();
+                        result.tx_metadata_list.should.be.a.Array();
+                        result.tx_metadata_list[0].should.be.a.String();
+                      })
+                      .then(done, done);
+                    })
+                    .timeout(3000);
+                  });
 
                   describe('relay_tx()', () => {
                     it('should relay transaction', done => {
@@ -1094,7 +1164,6 @@ describe('walletRPC constructor', () => {
 
                   let reserve_proof = '';
 
-                  // TODO figure out why reserve proofs don't include balance
                   describe('get_reserve_proof()', () => {
                     it('should check reserve proof of primary account', done => {
                       walletRPC.get_reserve_proof(0, 1)
@@ -1111,7 +1180,6 @@ describe('walletRPC constructor', () => {
                     it('should check reserve proof of address', done => {
                       walletRPC.check_reserve_proof(address, reserve_proof)
                       .then(result => {
-                        console.log(result);
                         result.should.be.a.Object();
                         result.good.should.be.a.Boolean();
                         result.good.should.be.equal(true);
@@ -1128,7 +1196,16 @@ describe('walletRPC constructor', () => {
                       walletRPC.get_transfers()
                       .then(result => {
                         result.should.be.a.Object();
-                        console.log(result);
+                        if ('in' in result)
+                          result.in.should.be.a.Array();
+                        if ('out' in result)
+                        result.out.should.be.a.Array();
+                        if ('pending' in result)
+                          result.pending.should.be.a.Array();
+                        if ('pool' in result)
+                          result.pool.should.be.a.Array();
+                        if ('failed' in result)
+                          result.failed.should.be.a.Array();
                       })
                       .then(done, done);
                     });
@@ -1253,17 +1330,6 @@ describe('walletRPC constructor', () => {
             walletRPC.tag_accounts([account_index])
             .then(result => {
               result.should.be.a.Object();
-            })
-            .then(done, done);
-          });
-        });
-
-        describe('get_height()', () => {
-          it('should get wallet height', done => {
-            walletRPC.get_height()
-            .then(result => {
-              result.should.be.a.Object();
-              result.height.should.be.a.Number();
             })
             .then(done, done);
           });
@@ -1410,22 +1476,17 @@ describe('walletRPC constructor', () => {
           });
         });
 
-        // // TODO find out why this fails
-        // describe('verify()', () => {
-        //   it('should verify signed message', done => {
-        //     console.log(address, signature);
-        //     walletRPC.verify('monerojs unit test suite message', address, signature)
-        //     .then(result => {
-        //       result.should.be.a.Object();
-        //       result.good.should.be.a.Boolean();
-        //       result.good.should.be.equal(true);
-        //     })
-        //     .then(done, done);
-        //   });
-        // });
-
-        // TODO export_key_images
-        // TODO import_key_images
+        describe('verify()', () => {
+          it('should verify signed message', done => {
+            walletRPC.verify('monerojs unit test suite message', address, signature)
+            .then(result => {
+              result.should.be.a.Object();
+              result.good.should.be.a.Boolean();
+              result.good.should.be.equal(true);
+            })
+            .then(done, done);
+          });
+        });
 
         let uri = '';
 
