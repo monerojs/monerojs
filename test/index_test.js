@@ -335,21 +335,6 @@ describe('daemonRPC constructor', () => {
           });
         });
 
-        describe('get_outs()', () => {
-          it('should get output info', done => {
-            daemonRPC.get_outs([{ index: 77777 }])
-            .then(result => {
-              result.should.be.a.Object();
-              result.status.should.be.a.String();
-              result.status.should.be.equal('OK');
-              result.outs.should.be.a.Array();
-              result.outs[0].should.be.a.Object();
-              result.outs[0].key.should.be.a.String();
-            })
-            .then(done, done);
-          });
-        });
-
         describe('hard_fork_info()', () => {
           it('should get hard info', done => {
             daemonRPC.hard_fork_info()
@@ -668,20 +653,23 @@ describe('daemonRPC constructor', () => {
               .then(done, done);
             });
           });
-        }
-
-        describe('get_outs()', () => {
-          it('should get output info', done => {
-            daemonRPC.get_outs([{ index: 77777 }])
-            .then(result => {
-              result.should.be.a.Object();
-              result.status.should.be.a.String();
-              result.status.should.be.equal('OK');
-              result.outs.should.be.a.Array();
-              result.outs[0].should.be.a.Object();
-              result.outs[0].key.should.be.a.String();
-            })
-            .then(done, done);
+          
+          describe('update()', () => {
+            it('should check for update', done => {
+              daemonRPC.update('check', '.')
+              .then(result => {
+                result.should.be.a.Object();
+                result.auto_uri.should.be.a.String();
+                result.hash.should.be.a.String();
+                result.path.should.be.a.String();
+                result.status.should.be.a.String();
+                // TODO check that status is 'OK'
+                result.update.should.be.a.Boolean();
+                result.user_uri.should.be.a.String();
+                result.version.should.be.a.String();
+              })
+              .then(done, done);
+            });
           });
 
           // // Make sure to test stop_daemon() last
@@ -697,6 +685,21 @@ describe('daemonRPC constructor', () => {
           //     .then(done, done);
           //   });
           // });
+        }
+
+        describe('get_outs()', () => {
+          it('should get output info', done => {
+            daemonRPC.get_outs([{ index: 77777 }])
+            .then(result => {
+              result.should.be.a.Object();
+              result.status.should.be.a.String();
+              result.status.should.be.equal('OK');
+              result.outs.should.be.a.Array();
+              result.outs[0].should.be.a.Object();
+              result.outs[0].key.should.be.a.String();
+            })
+            .then(done, done);
+          });
         });
       });
     })
@@ -881,11 +884,25 @@ describe('walletRPC constructor', () => {
                     .timeout(5000);
                   });
 
+                  describe('relay_tx()', () => {
+                    it('should relay transaction', done => {
+                      walletRPC.relay_tx(tx_metadata)
+                      .then(result => {
+                        result.should.be.a.Object();
+                        result.fee.should.be.a.Number();
+                        result.tx_blob.should.be.a.String();
+                        result.tx_hash.should.be.a.String();
+                        result.tx_key.should.be.a.String();
+                      })
+                      .then(done, done);
+                    });
+                  });
+
                   describe('transfer_split()', () => {
                     it('should generate potentially-split transaction', done => {
                       walletRPC.transfer_split({
                         address: address,
-                        amount: balance - balance/10,
+                        amount: (balance - balance/10) / 1000000000000,
                         mixin: 6,
                         get_tx_keys: true,
                         account_index: 0,
@@ -908,12 +925,64 @@ describe('walletRPC constructor', () => {
                         result.tx_key_list[0].should.be.a.String();
                         result.tx_blob_list.should.be.a.Array();
                         result.tx_blob_list[0].should.be.a.String();
+                        tx_blob = result.tx_blob_list[0];
                         result.tx_metadata_list.should.be.a.Array();
                         result.tx_metadata_list[0].should.be.a.String();
                       })
                       .then(done, done);
                     })
                     .timeout(6000);
+                  });
+
+                  describe('daemonRPC transfer methods constructor', () => {
+                    // TODO connect to fastest daemon from test above
+                    it('should connect to daemon', done => {
+                      var daemonRPC = new Monero.daemonRPC({ autoconnect: true, random: true, network: network })
+                      .then(daemon => {
+                        daemon.should.be.a.Object();
+
+                        describe('daemonRPC transfer methods', () => {
+                          describe('send_raw_transaction()', () => {
+                            it('should send a raw transaction', done => {
+                              daemon.send_raw_transaction(tx_blob, true)
+                              .then(result => {
+                                result.should.be.a.Object();
+                                console.log(result);
+                                result.double_spend.should.be.a.Boolean();
+                                result.double_spend.should.be.equal(false);
+                                result.fee_too_low.should.be.a.Boolean();
+                                result.fee_too_low.should.be.equal(false);
+                                result.invalid_input.should.be.a.Boolean();
+                                result.invalid_input.should.be.equal(false);
+                                result.invalid_output.should.be.a.Boolean();
+                                result.invalid_output.should.be.equal(false);
+                                result.low_mixin.should.be.a.Boolean();
+                                result.low_mixin.should.be.equal(false);
+                                result.not_rct.should.be.a.Boolean();
+                                result.not_rct.should.be.equal(false);
+                                result.not_relayed.should.be.a.Boolean();
+                                result.not_relayed.should.be.equal(true);
+                                result.overspend.should.be.a.Boolean();
+                                result.overspend.should.be.equal(false);
+                                result.reason.should.be.a.String();
+                                result.reason.should.be.equal('Not relayed');
+                                result.status.should.be.a.String();
+                                result.status.should.be.equal('OK');
+                                result.too_big.should.be.a.Boolean();
+                                result.too_big.should.be.equal(false);
+                                result.untrusted.should.be.a.Boolean();
+                                result.untrusted.should.be.equal(false);
+                              })
+                              .then(done, done);
+                            });
+                          });
+                        });
+                      })
+                      .catch(error => {
+                        // TODO handle error
+                      })
+                      .then(done, done);
+                    });
                   });
 
                   describe('sweep_dust()', () => {
@@ -1005,20 +1074,6 @@ describe('walletRPC constructor', () => {
                       .then(done, done);
                     })
                     .timeout(9000);
-                  });
-
-                  describe('relay_tx()', () => {
-                    it('should relay transaction', done => {
-                      walletRPC.relay_tx(tx_metadata)
-                      .then(result => {
-                        result.should.be.a.Object();
-                        result.fee.should.be.a.Number();
-                        result.tx_blob.should.be.a.String();
-                        result.tx_hash.should.be.a.String();
-                        result.tx_key.should.be.a.String();
-                      })
-                      .then(done, done);
-                    });
                   });
 
                   // TODO request faucet transaction with this payment ID
@@ -1431,7 +1486,7 @@ describe('walletRPC constructor', () => {
 
         describe('make_integrated_address()', () => {
           it('should make integrated address', done => {
-            walletRPC.make_integrated_address('394dc6dfc57071eb')
+            walletRPC.make_integrated_address(address, '394dc6dfc57071eb')
             .then(result => {
               result.should.be.a.Object();
               result.payment_id.should.be.a.String();
