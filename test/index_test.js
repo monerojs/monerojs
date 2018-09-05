@@ -549,6 +549,31 @@ describe('daemonRPC constructor', () => {
           });
           // TODO make SURE that mining is stopped.
 
+          describe('set_bans()', () => {
+            it('should (un)ban peer', done => {
+              daemonRPC.set_bans({ host: '1.1.1.1', ban: false, seconds: 30 })
+              .then(result => {
+                result.should.be.a.Object();
+                result.status.should.be.a.String();
+                result.status.should.be.equal('OK');
+              })
+              .then(done, done);
+            });
+          });
+
+          describe('get_bans()', () => {
+            it('should get banned peers', done => {
+              daemonRPC.get_bans()
+              .then(result => {
+                result.should.be.a.Object();
+                result.status.should.be.a.String();
+                result.status.should.be.equal('OK');
+                // TODO look for more information
+              })
+              .then(done, done);
+            });
+          });
+
           describe('save_bc()', () => {
             it('should save blockchain', done => {
               daemonRPC.save_bc()
